@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Protocol
 
 from ..parser import ParsedPacket
@@ -36,10 +36,10 @@ class CooldownMixin:
     def __init__(self) -> None:
         self._last_alert: dict[str, float] = {}
 
-    def _can_alert(self, source: str) -> bool:
-        now = time.time()
-        last = self._last_alert.get(source, 0.0)
-        if now - last >= self.cooldown_seconds:
-            self._last_alert[source] = now
+    def _can_alert(self, source: str, now: float | None = None) -> bool:
+        current = time.time() if now is None else now
+        last = self._last_alert.get(source)
+        if last is None or current - last >= self.cooldown_seconds:
+            self._last_alert[source] = current
             return True
         return False
