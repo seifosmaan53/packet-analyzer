@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import math
-import time
 from collections import deque
 from typing import Optional
 
@@ -71,9 +70,9 @@ class StatsAnomalyDetector(CooldownMixin):
             return None
 
         z = (completed_count - mean) / stdev
-        if z >= self.z_threshold and self._can_alert("global_pps"):
+        if z >= self.z_threshold and self._can_alert("global_pps", pkt.ts):
             return Alert(
-                ts=time.time(),
+                ts=pkt.ts,
                 severity="warn",
                 detector=self.name,
                 source="*",
