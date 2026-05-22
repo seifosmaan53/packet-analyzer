@@ -14,6 +14,7 @@ from .capture import Capture
 from .detectors import (
     Detector,
     DnsAnomalyDetector,
+    IcmpFloodDetector,
     PortScanDetector,
     StatsAnomalyDetector,
     SynFloodDetector,
@@ -37,6 +38,8 @@ class StatsBar(Static):
     dropped: reactive[int] = reactive(0)
     alerts: reactive[int] = reactive(0)
     paused: reactive[bool] = reactive(False)
+    top_source: reactive[str] = reactive("-")
+    protocols: reactive[str] = reactive("-")
 
     def render(self) -> str:
         kbps = self.bps * 8 / 1000.0
@@ -45,6 +48,8 @@ class StatsBar(Static):
             f" [b]Packets[/b] {self.total:>7}   "
             f"[b]PPS[/b] {self.pps:>6.1f}   "
             f"[b]Kbps[/b] {kbps:>7.1f}   "
+            f"[b]Top[/b] {self.top_source}   "
+            f"[b]Proto[/b] {self.protocols}   "
             f"[b]Dropped[/b] {self.dropped}   "
             f"[b]Alerts[/b] {self.alerts}{pause_tag}"
         )
@@ -77,6 +82,7 @@ class PacketAnalyzerApp(App):
             SynFloodDetector(),
             PortScanDetector(),
             DnsAnomalyDetector(),
+            IcmpFloodDetector(),
             StatsAnomalyDetector(),
         ]
 
@@ -155,6 +161,8 @@ class PacketAnalyzerApp(App):
         stats.dropped = self.capture.dropped
         stats.alerts = len(self.state.alerts)
         stats.paused = self.state.paused
+        stats.top_source = _format_top_pair(self.state.top_sources(1))
+        stats.protocols = _format_protocols(self.state.protocol_counts)
 
     def action_toggle_pause(self) -> None:
         self.state.paused = not self.state.paused
@@ -162,3 +170,16 @@ class PacketAnalyzerApp(App):
     def action_clear_alerts(self) -> None:
         self.state.clear_alerts()
         self.query_one("#alerts_table", DataTable).clear()
+
+
+def _format_top_pair(pairs: list[tuple[str, int]]) -> str:
+    if not pairs:
+        return "-"
+    key, count = pairs[0]
+    return f"{key}({count})"
+
+
+def _format_protocols(counts: dict[str, int]) -> str:
+    if not counts:
+        return "-"
+    return "/".join(f"{name}:{count}" for name, count in sorted(counts.items()))

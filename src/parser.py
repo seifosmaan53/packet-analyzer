@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from scapy.layers.inet import IP, TCP, UDP, ICMP
-from scapy.layers.inet6 import IPv6
+from scapy.layers.inet6 import IPv6, ICMPv6EchoReply, ICMPv6EchoRequest
 from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.http import HTTPRequest, HTTPResponse
 from scapy.packet import Packet
@@ -59,7 +59,7 @@ def _tcp_flag_str(flags: int) -> str:
 
 def parse(pkt: Packet) -> Optional[ParsedPacket]:
     """Extract fields we care about. Returns None for non-IP traffic."""
-    ts = time.time()
+    ts = float(getattr(pkt, "time", time.time()))
     length = len(pkt)
 
     if IP in pkt:
@@ -108,6 +108,8 @@ def parse(pkt: Packet) -> Optional[ParsedPacket]:
 
     elif ICMP in pkt:
         proto = "ICMP"
+    elif ICMPv6EchoRequest in pkt or ICMPv6EchoReply in pkt:
+        proto = "ICMPv6"
 
     return ParsedPacket(
         ts=ts,

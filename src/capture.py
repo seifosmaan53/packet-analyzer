@@ -5,7 +5,7 @@ import queue
 import threading
 from typing import Optional
 
-from scapy.all import AsyncSniffer, conf, get_if_list
+from scapy.all import AsyncSniffer, get_if_list
 
 from .parser import ParsedPacket, parse
 

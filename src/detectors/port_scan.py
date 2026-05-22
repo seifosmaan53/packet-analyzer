@@ -1,7 +1,6 @@
 """Detect port scans: one source touching many distinct dest ports."""
 from __future__ import annotations
 
-import time
 from collections import defaultdict, deque
 from typing import Optional
 
@@ -42,10 +41,10 @@ class PortScanDetector(CooldownMixin):
             bucket.popleft()
 
         unique_ports = {(dst, port) for _, dst, port in bucket}
-        if len(unique_ports) >= self.threshold and self._can_alert(pkt.src):
+        if len(unique_ports) >= self.threshold and self._can_alert(pkt.src, pkt.ts):
             distinct_dests = len({d for d, _ in unique_ports})
             return Alert(
-                ts=time.time(),
+                ts=pkt.ts,
                 severity="high",
                 detector=self.name,
                 source=pkt.src,

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import math
-import time
 from collections import Counter, defaultdict, deque
 from typing import Optional
 
@@ -58,9 +57,9 @@ class DnsAnomalyDetector(CooldownMixin):
             cutoff = pkt.ts - self.window
             while bucket and bucket[0] < cutoff:
                 bucket.popleft()
-            if len(bucket) >= self.nx_threshold and self._can_alert(f"nx:{pkt.dst}"):
+            if len(bucket) >= self.nx_threshold and self._can_alert(f"nx:{pkt.dst}", pkt.ts):
                 return Alert(
-                    ts=time.time(),
+                    ts=pkt.ts,
                     severity="warn",
                     detector=self.name,
                     source=pkt.dst,
@@ -76,9 +75,9 @@ class DnsAnomalyDetector(CooldownMixin):
         q = pkt.dns_query
 
         # Rule 1: very long query name.
-        if len(q) >= self.max_qname and self._can_alert(f"long:{pkt.src}"):
+        if len(q) >= self.max_qname and self._can_alert(f"long:{pkt.src}", pkt.ts):
             return Alert(
-                ts=time.time(),
+                ts=pkt.ts,
                 severity="warn",
                 detector=self.name,
                 source=pkt.src,
@@ -91,9 +90,9 @@ class DnsAnomalyDetector(CooldownMixin):
             longest = max(labels, key=len)
             if len(longest) >= 12:
                 ent = _shannon_entropy(longest)
-                if ent >= self.entropy_threshold and self._can_alert(f"ent:{pkt.src}"):
+                if ent >= self.entropy_threshold and self._can_alert(f"ent:{pkt.src}", pkt.ts):
                     return Alert(
-                        ts=time.time(),
+                        ts=pkt.ts,
                         severity="warn",
                         detector=self.name,
                         source=pkt.src,
@@ -110,9 +109,9 @@ class DnsAnomalyDetector(CooldownMixin):
             cutoff = pkt.ts - self.window
             while bucket and bucket[0] < cutoff:
                 bucket.popleft()
-            if len(bucket) >= self.txt_threshold and self._can_alert(f"txt:{pkt.src}"):
+            if len(bucket) >= self.txt_threshold and self._can_alert(f"txt:{pkt.src}", pkt.ts):
                 return Alert(
-                    ts=time.time(),
+                    ts=pkt.ts,
                     severity="warn",
                     detector=self.name,
                     source=pkt.src,

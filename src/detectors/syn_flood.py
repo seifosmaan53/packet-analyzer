@@ -1,7 +1,6 @@
 """Detect SYN floods: many SYN packets without ACK from one source."""
 from __future__ import annotations
 
-import time
 from collections import defaultdict, deque
 from typing import Optional
 
@@ -35,9 +34,9 @@ class SynFloodDetector(CooldownMixin):
         while bucket and bucket[0] < cutoff:
             bucket.popleft()
 
-        if len(bucket) >= self.threshold and self._can_alert(pkt.src):
+        if len(bucket) >= self.threshold and self._can_alert(pkt.src, pkt.ts):
             return Alert(
-                ts=time.time(),
+                ts=pkt.ts,
                 severity="high",
                 detector=self.name,
                 source=pkt.src,
