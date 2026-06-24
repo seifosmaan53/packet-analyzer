@@ -10,6 +10,7 @@ Built by Seif Osman.
 - **Offline PCAP analysis** with `--pcap` for demos, labs, and investigations without sudo
 - **Protocol parsing**: Ethernet → IP/IPv6 → TCP/UDP/ICMP → HTTP/DNS
 - **Filtering**: BPF filters at the kernel level (e.g. `tcp port 443`)
+- **Save to .pcap**: press `w` in the live TUI to dump recent traffic to a timestamped `capture-*.pcap` you can open in Wireshark/tshark
 - **Exports**: JSON reports plus packet-level JSON/CSV output for sharing or notebooks
 - **Detectors**:
   - SYN flood (half-open connections per source)
@@ -57,7 +58,21 @@ python sniffer.py --pcap sample.pcap \
   --packets-csv reports/packets.csv
 ```
 
-Press `q` to quit, `p` to pause/resume the live feed, `c` to clear alerts.
+Press `q` to quit, `p` to pause/resume the live feed, `c` to clear alerts, and `w` to
+save the buffered packets to a `.pcap` in the current directory.
+
+### Saving captures to .pcap
+
+The sniffer keeps the most recent packets (default 10,000) as raw frames in memory.
+Pressing `w` writes them to `capture-YYYYmmdd-HHMMSS.pcap` and shows a confirmation
+toast with the packet count. The file is a standard libpcap capture, so you can hand it
+straight to Wireshark or tshark:
+
+```bash
+tshark -r capture-20260622-091500.pcap
+# or feed it back into this tool for an offline report:
+python sniffer.py --pcap capture-20260622-091500.pcap
+```
 
 ## What the dashboard shows
 
@@ -104,6 +119,7 @@ packet-analyzer/
 └── tests/
     ├── test_detectors.py
     ├── test_parser.py
+    ├── test_pcap_export.py
     └── test_upgrade_features.py
 ```
 

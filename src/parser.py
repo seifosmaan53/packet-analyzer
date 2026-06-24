@@ -44,6 +44,24 @@ class ParsedPacket:
         return base
 
 
+def _first_dns_question(qd) -> Optional[DNSQR]:
+    """Return the first DNS question record across Scapy's representations.
+
+    A freshly-built `DNS(qd=DNSQR(...))` exposes `qd` as a single DNSQR, but a
+    packet deserialized from the wire (or a .pcap) returns a list-like wrapper.
+    Handle both so DNS queries are still extracted in offline analysis.
+    """
+    if qd is None:
+        return None
+    if isinstance(qd, DNSQR):
+        return qd
+    try:
+        first = qd[0]
+    except (TypeError, IndexError):
+        return None
+    return first if isinstance(first, DNSQR) else None
+
+
 def _tcp_flag_str(flags: int) -> str:
     """Convert TCP flag bitfield to short string like 'SA' for SYN+ACK."""
     mapping = [
@@ -99,12 +117,13 @@ def parse(pkt: Packet) -> Optional[ParsedPacket]:
         if DNS in pkt:
             dns = pkt[DNS]
             dns_rcode = int(dns.rcode) if dns.qr == 1 else None
-            if dns.qd and isinstance(dns.qd, DNSQR):
-                qname = dns.qd.qname
+            question = _first_dns_question(dns.qd)
+            if question is not None:
+                qname = question.qname
                 if isinstance(qname, bytes):
                     qname = qname.decode(errors="ignore").rstrip(".")
                 dns_query = qname
-                dns_qtype = int(dns.qd.qtype)
+                dns_qtype = int(question.qtype)
 
     elif ICMP in pkt:
         proto = "ICMP"

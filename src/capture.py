@@ -3,11 +3,30 @@ from __future__ import annotations
 
 import queue
 import threading
-from typing import Optional
+from collections import deque
+from pathlib import Path
+from typing import Deque, Optional
 
 from scapy.all import AsyncSniffer, get_if_list
+from scapy.packet import Packet
+from scapy.utils import wrpcap
 
 from .parser import ParsedPacket, parse
+
+
+def write_pcap(raw_packets, path: str | Path) -> int:
+    """Write raw Scapy packets to a libpcap file readable by Wireshark/tshark.
+
+    Returns the number of packets written. Empty input still produces a valid
+    (zero-packet) pcap so downstream tooling never trips over a missing file.
+    Separated from `Capture` so it can be unit-tested with synthetic packets,
+    no live sniffer (and therefore no sudo) required.
+    """
+    packets = list(raw_packets)
+    output_path = Path(path).expanduser()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    wrpcap(str(output_path), packets)
+    return len(packets)
 
 
 class Capture:
@@ -23,6 +42,7 @@ class Capture:
         iface: Optional[str] = None,
         bpf_filter: Optional[str] = None,
         max_queue: int = 5000,
+        pcap_buffer: int = 10000,
     ) -> None:
         self.iface = iface
         self.bpf_filter = bpf_filter
@@ -30,6 +50,11 @@ class Capture:
         self._dropped = 0
         self._sniffer: Optional[AsyncSniffer] = None
         self._lock = threading.Lock()
+        # Rolling buffer of the *raw* Scapy packets so we can dump a faithful
+        # .pcap on demand. The parse path keeps only the flattened ParsedPacket,
+        # which loses payload bytes — useless for Wireshark interop — so we keep
+        # the originals here, bounded to the most recent `pcap_buffer` packets.
+        self.raw_buffer: Deque[Packet] = deque(maxlen=pcap_buffer)
 
     @staticmethod
     def list_interfaces() -> list[str]:
@@ -40,6 +65,10 @@ class Capture:
         return self._dropped
 
     def _on_packet(self, pkt) -> None:
+        # Retain the raw frame first — even packets we can't parse (non-IP, etc.)
+        # belong in a faithful capture. deque.append is atomic under the GIL, so
+        # this is safe to call from the sniffer thread without locking.
+        self.raw_buffer.append(pkt)
         parsed = parse(pkt)
         if parsed is None:
             return
@@ -86,3 +115,11 @@ class Capture:
             except queue.Empty:
                 break
         return items
+
+    def write_pcap(self, path: str | Path) -> int:
+        """Dump the buffered raw packets to a .pcap and return the count written.
+
+        Snapshots the ring buffer first (`list(...)` is atomic under the GIL) so
+        the sniffer thread can keep appending while we write.
+        """
+        return write_pcap(list(self.raw_buffer), path)

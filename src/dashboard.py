@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from textual.app import App, ComposeResult
@@ -72,6 +73,7 @@ class PacketAnalyzerApp(App):
         Binding("q", "quit", "Quit"),
         Binding("p", "toggle_pause", "Pause/Resume"),
         Binding("c", "clear_alerts", "Clear alerts"),
+        Binding("w", "save_pcap", "Save .pcap"),
     ]
 
     def __init__(self, iface: Optional[str] = None, bpf: Optional[str] = None) -> None:
@@ -170,6 +172,20 @@ class PacketAnalyzerApp(App):
     def action_clear_alerts(self) -> None:
         self.state.clear_alerts()
         self.query_one("#alerts_table", DataTable).clear()
+
+    def action_save_pcap(self) -> None:
+        """Dump buffered raw packets to a timestamped .pcap for Wireshark/tshark."""
+        filename = f"capture-{datetime.now().strftime('%Y%m%d-%H%M%S')}.pcap"
+        path = Path.cwd() / filename
+        try:
+            count = self.capture.write_pcap(path)
+        except Exception as exc:  # surface the failure in-UI rather than crashing
+            self.notify(f"PCAP save failed: {exc}", severity="error", timeout=6)
+            return
+        if count == 0:
+            self.notify("No packets captured yet — nothing to save.", severity="warning")
+            return
+        self.notify(f"Saved {count} packets to {filename}", title="PCAP written", timeout=6)
 
 
 def _format_top_pair(pairs: list[tuple[str, int]]) -> str:
